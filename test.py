@@ -47,4 +47,47 @@ bgg = BGGClient()
 g = bgg.hot_items("boardgame")
 for game in g:
     hot_game_list.append(game.name)
+    
+# for game in top_game_list: we can extract useful information including
+# categories, description, mechanics, min/maxplayers, playingtime, minage, averageWeight
+g = bgg.game(name="Through the Ages: A New Story of Civilization", comments=True)
+with open("Through the Ages: A New Story of Civilization.txt", "w") as f:
+    for i in range(len(g.comments)):
+        if len(g.comments[i]._data['comment']) > 50:
+            f.write(g.comments[i]._data['comment'])
+            f.write("\n")
 
+from langchain.embeddings import HuggingFaceBgeEmbeddings
+
+model_name = "BAAI/bge-large-en-v1.5"
+model_kwargs = {'device': 'cpu'}
+encode_kwargs = {'normalize_embeddings': False}
+hf = HuggingFaceBgeEmbeddings(
+    model_name=model_name,
+    model_kwargs=model_kwargs,
+    encode_kwargs=encode_kwargs
+)
+
+# embedding = hf.embed_query("How are you doing today?")
+# embedding[0]
+
+# pgvector
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.vectorstores.pgvector import PGVector
+from langchain.document_loaders import TextLoader
+
+loader = TextLoader("Through the Ages: A New Story of Civilization.txt")
+documents = loader.load()
+text_splitter = CharacterTextSplitter(chunk_size=512, chunk_overlap=0)
+docs = text_splitter.split_documents(documents)
+
+CONNECTION_STRING = "postgresql+psycopg2://kenzgf:@localhost:5432/postgres"
+
+COLLECTION_NAME = "tta_test"
+
+db = PGVector.from_documents(
+    embedding=hf,
+    documents=docs,
+    collection_name=COLLECTION_NAME,
+    connection_string=CONNECTION_STRING,
+)
